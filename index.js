@@ -2,29 +2,8 @@ const express = require('express')
 const app = express()
 const morgan = require('morgan')
 const cors = require('cors')
-
-let entries = [
-    { 
-      "id": 1,
-      "name": "Arto Hellas", 
-      "number": "040-123456"
-    },
-    { 
-      "id": 2,
-      "name": "Ada Lovelace", 
-      "number": "39-44-5323523"
-    },
-    { 
-      "id": 3,
-      "name": "Dan Abramov", 
-      "number": "12-43-234345"
-    },
-    { 
-      "id": 4,
-      "name": "Mary Poppendieck", 
-      "number": "39-23-6423122"
-    }
-]
+require('dotenv').config()
+const Person = require('./models/person')
 
 app.use(cors())
 app.use(express.static('build'))
@@ -46,7 +25,9 @@ app.use(
 )
 
 app.get('/api/persons', (request, response) => {
-    response.json(entries)
+    Person.find({}).then( persons => {
+        response.json(persons)
+    })
 })
 
 app.get('/info', (request, response) => {
@@ -56,13 +37,9 @@ app.get('/info', (request, response) => {
 })
 
 app.get('/api/persons/:id', (request, response) => {
-    const id = Number(request.params.id)  
-    const entry = entries.find(entry => entry.id === id)
-    if (entry) {    
-        response.json(entry)  
-    } else {    
-        response.status(404).end()  
-    }
+    Person.findById(request.params.id).then( person => {
+        response.json(person)
+    })
 })
 
 app.delete('/api/persons/:id', (request, response) => {
@@ -84,21 +61,14 @@ app.post('/api/persons', (request, response) => {
       })
     }
 
-    else if(entries.filter((entry) => entry.name.toLowerCase() === body.name.toLowerCase()).length > 0){
-        return response.status(400).json({
-            error: 'Name must be unique' 
-          })
-    }
-  
-    const person = {
-        id: generateId(),
+    const person = new Person({
         name: body.name,
         number: body.number
-    }
-  
-    entries = entries.concat(person)
-  
-    response.json(person)
+      })
+    
+    person.save().then(savedPerson => {
+        response.json(savedPerson)
+    })
 })
 
 const unknownEndpoint = (request, response) => {
@@ -107,7 +77,7 @@ const unknownEndpoint = (request, response) => {
   
 app.use(unknownEndpoint)
 
-const PORT = process.env.PORT || 3001
+const PORT = process.env.PORT
 
 app.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`)
