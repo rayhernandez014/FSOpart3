@@ -32,8 +32,9 @@ app.get('/api/persons', (request, response) => {
 
 app.get('/info', (request, response) => {
     const date = new Date()
-    const entriesTotal = entries.length
-    response.send(`Phonebook has info for ${entriesTotal} people <br /> ${date}`)
+    Person.find({}).estimatedDocumentCount().then( total => {
+      response.send(`Phonebook has info for ${total} people <br /> ${date}`)
+    })
 })
 
 app.get('/api/persons/:id', (request, response) => {
@@ -42,15 +43,33 @@ app.get('/api/persons/:id', (request, response) => {
     })
 })
 
-app.delete('/api/persons/:id', (request, response) => {
-    const id = Number(request.params.id)
-    entries = entries.filter(entry => entry.id !== id)
-    response.status(204).end()
+app.delete('/api/persons/:id', (request, response, next) => {
+    Person.findByIdAndRemove(request.params.id)
+    .then(result => {
+      response.status(204).end()
+    })
+    .catch(error => next(error))
 })
 
-const generateId = () => {
-    return Math.floor(Math.random()*1000)
-}
+app.put('/api/persons/:id', (request, response, next) => {
+    const body = request.body
+  
+    const person = {
+     number: body.number,
+    }
+  
+    Person.findByIdAndUpdate(request.params.id, person, { new: true })
+      .then(updatedPerson => {
+        if (updatedPerson){
+          response.json(updatedPerson)
+        }
+        else {
+          response.status(404).json({ error: `User with ID ${request.params.id} does not exist` })
+        }
+        
+      })
+      .catch(error => next(error))
+})
 
 app.post('/api/persons', (request, response) => {
     const body = request.body
@@ -76,6 +95,18 @@ const unknownEndpoint = (request, response) => {
 }
   
 app.use(unknownEndpoint)
+
+const errorHandler = (error, request, response, next) => {
+    console.error(error.message)
+  
+    if (error.name === 'CastError') {
+      return response.status(400).send({ error: 'malformatted id' })
+    } 
+  
+    next(error)
+}
+  
+app.use(errorHandler)
 
 const PORT = process.env.PORT
 
